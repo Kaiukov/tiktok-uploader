@@ -368,6 +368,7 @@ def complete_upload_form(
     if not skip_split_window:
         _remove_split_window(page)
     _set_interactivity(page, **kwargs)
+    _dismiss_modal(page)
     _set_description(page, description)
     if visibility != "everyone":
         _set_visibility(page, visibility)
@@ -748,6 +749,43 @@ def __verify_time_picked_is_correct(page: Page, hour: int, minute: int) -> None:
             f"but got {time_selected_hour:02d}:{time_selected_minute:02d}"
         )
         raise Exception(msg)
+
+
+def _dismiss_modal(page: Page) -> None:
+    """
+    Dismisses blocking overlays before setting description.
+
+    TikTok shows two overlays in headless mode that intercept pointer events:
+    1. TUXModal-overlay — "Turn on automatic content checks?" dialog
+    2. react-joyride__overlay — onboarding tutorial overlay
+
+    Strategy: close the X button on the modal first, then JS-remove any
+    remaining overlay elements so clicks reach the upload form.
+    """
+    try:
+        close_btn = page.locator(".common-modal-close-icon")
+        if close_btn.is_visible(timeout=3000):
+            close_btn.click()
+            time.sleep(0.5)
+    except Exception:
+        pass
+    try:
+        page.evaluate("""
+            () => {
+                const selectors = [
+                    '.TUXModal-overlay',
+                    '#react-joyride-portal',
+                    '[data-test-id="overlay"]',
+                    '.react-joyride__overlay',
+                ];
+                selectors.forEach(sel => {
+                    document.querySelectorAll(sel).forEach(el => el.remove());
+                });
+            }
+        """)
+        time.sleep(0.3)
+    except Exception:
+        pass
 
 
 def _post_video(page: Page) -> None:
