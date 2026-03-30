@@ -376,6 +376,7 @@ def complete_upload_form(
         _set_schedule_video(page, schedule)
     if product_id:
         _add_product_link(page, product_id)
+    _dismiss_modal(page)  # dismiss overlays that may appear after typing description
     _post_video(page)
 
 
@@ -385,8 +386,15 @@ def _go_to_upload(page: Page) -> None:
     """
     logger.debug(green("Navigating to upload page"))
 
-    if page.url != config.paths.upload:
-        page.goto(str(config.paths.upload))
+    upload_url = str(config.paths.upload)
+    # TikTok may redirect creator-center/upload → tiktokstudio/upload; check both
+    on_upload_page = page.url == upload_url or (
+        "tiktokstudio/upload" in page.url and "tiktokstudio/upload" in upload_url
+    ) or (
+        "creator-center/upload" in page.url
+    )
+    if not on_upload_page:
+        page.goto(upload_url)
     else:
         # refresh
         page.reload()
@@ -563,23 +571,27 @@ def _set_interactivity(
     """
     Sets the interactivity settings of the video
     """
+    logger.debug(green("Setting interactivity settings"))
+
+    def _toggle_if_needed(xpath: str, desired: bool) -> None:
+        """Click a checkbox only if its current state differs from desired."""
+        if not xpath:
+            return
+        try:
+            box = page.locator(f"xpath={xpath}")
+            if box.is_visible(timeout=5000) and (desired ^ box.is_checked(timeout=5000)):
+                box.click()
+        except Exception:
+            pass  # selector no longer exists in current TikTok UI, skip silently
+
     try:
-        logger.debug(green("Setting interactivity settings"))
-
-        comment_box = page.locator(f"xpath={config.selectors.upload.comment}")
-        stitch_box = page.locator(f"xpath={config.selectors.upload.stitch}")
-        duet_box = page.locator(f"xpath={config.selectors.upload.duet}")
-
-        if comment ^ comment_box.is_checked():
-            comment_box.click()
-
-        if stitch ^ stitch_box.is_checked():
-            stitch_box.click()
-
-        if duet ^ duet_box.is_checked():
-            duet_box.click()
-
-    except Exception as _:
+        _toggle_if_needed(config.selectors.upload.comment, comment)
+        # duet / stitch removed from TikTok UI (replaced by "Reuse of content")
+        reuse_sel = getattr(config.selectors.upload, "reuse_content", "")
+        if reuse_sel:
+            # keep default (True) — only toggle if caller explicitly requests False
+            _toggle_if_needed(reuse_sel, stitch and duet)
+    except Exception:
         logger.error("Failed to set interactivity settings")
 
 
@@ -762,6 +774,7 @@ def _dismiss_modal(page: Page) -> None:
     Strategy: close the X button on the modal first, then JS-remove any
     remaining overlay elements so clicks reach the upload form.
     """
+    # Click X close button on copyright-check modal
     try:
         close_btn = page.locator(".common-modal-close-icon")
         if close_btn.is_visible(timeout=3000):
@@ -769,6 +782,26 @@ def _dismiss_modal(page: Page) -> None:
             time.sleep(0.5)
     except Exception:
         pass
+
+    # Click "Cancel" on "Turn on automatic content checks?" dialog
+    try:
+        cancel_btn = page.locator("button", has_text="Cancel")
+        if cancel_btn.is_visible(timeout=2000):
+            cancel_btn.click()
+            time.sleep(0.3)
+    except Exception:
+        pass
+
+    # Click "Got it" on joyride tour tooltip
+    try:
+        got_it = page.locator("button", has_text="Got it")
+        if got_it.is_visible(timeout=2000):
+            got_it.click()
+            time.sleep(0.3)
+    except Exception:
+        pass
+
+    # JS-remove remaining overlay DOM elements
     try:
         page.evaluate("""
             () => {
@@ -777,6 +810,7 @@ def _dismiss_modal(page: Page) -> None:
                     '#react-joyride-portal',
                     '[data-test-id="overlay"]',
                     '.react-joyride__overlay',
+                    '.react-joyride__beacon',
                 ];
                 selectors.forEach(sel => {
                     document.querySelectorAll(sel).forEach(el => el.remove());
@@ -810,7 +844,7 @@ def _post_video(page: Page) -> None:
 
     except Exception:
         logger.debug(green("Trying to click on the button again (fallback)"))
-        page.evaluate('document.querySelector(".TUXButton--primary").click()')
+        page.evaluate('document.querySelector("[data-e2e=\'post_video_button\']").click()')
 
     try:
         post_now = page.locator(f"xpath={config.selectors.upload.post_now}")

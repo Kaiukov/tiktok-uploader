@@ -79,6 +79,7 @@ class UploadSelectors(StrictModel):
     comment: str
     duet: str
     stitch: str
+    reuse_content: str = ""
 
     post: str
     post_now: str

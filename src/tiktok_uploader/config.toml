@@ -23,7 +23,7 @@ max_description_length = 150 # characters
 [paths]
 main = "https://www.tiktok.com/"
 login = "https://www.tiktok.com/login/phone-or-email/email"
-upload = "https://www.tiktok.com/creator-center/upload?lang=en"
+upload = "https://www.tiktok.com/tiktokstudio/upload?lang=en"
 
 [disguising]
 user_agent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3'
@@ -46,7 +46,7 @@ user_agent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTM
 	upload_video = "//input[@type='file']"
 	upload_finished = "//div[contains(@class, 'btn-cancel')]"
  	upload_confirmation = "//div[@title]"
- 	process_confirmation = "//div[contains(@class, 'resolution-label-text')]"
+	process_confirmation = "//div[@data-e2e='upload_status_container']"
 	description = "//div[@contenteditable='true']"
 
 	visibility = "//div[@class='tiktok-select-selector']"
@@ -55,9 +55,10 @@ user_agent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTM
 	mention_box = "//div[contains(@class, 'mention-list-popover')]"
 	mention_box_user_id = "//span[contains(@class, 'user-id')]"
 
-	comment = "//label[.='Comment']/following-sibling::div/input"
-	duet = "//label[.='Duet']/following-sibling::div/input"
-	stitch = "//label[.='Stitch']/following-sibling::div/input"
+	comment = "//label[.//span[text()='Comment']]//input[@type='checkbox']"
+	duet = ""
+	stitch = ""
+	reuse_content = "//label[.//span[text()='Reuse of content']]//input[@type='checkbox']"
 
 	post = "//button[@data-e2e='post_video_button']"
 	post_now = "//button[.//div[text()='Post now']]"
